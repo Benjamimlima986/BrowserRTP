@@ -3,7 +3,7 @@ services:
     image: nginx:alpine
     container_name: browserrtp-nginx
     ports:
-      - "3000:80"
+      - "8080:80"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

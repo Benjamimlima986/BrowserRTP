@@ -10,11 +10,11 @@ docker compose up -d --build
 
 Open the site in a browser:
 
-- Dashboard: http://localhost:3000
-- Chromium direct: http://localhost:3000/vnc/chrome/vnc.html?autoconnect=1&resize=remote
-- Firefox direct: http://localhost:3000/vnc/firefox/vnc.html?autoconnect=1&resize=remote
+- Dashboard: http://localhost:8080
+- Chromium direct: http://localhost:8080/vnc/chrome/vnc.html?autoconnect=1&resize=remote
+- Firefox direct: http://localhost:8080/vnc/firefox/vnc.html?autoconnect=1&resize=remote
 
-Nginx is the public entry point on port `3000` and proxies the API on port `3001` and noVNC traffic. The VNC ports stay private inside the Compose network. These defaults are intended for local development; add authentication and TLS before exposing them publicly.
+Nginx is the public entry point on port `8080` and proxies the API on port `3001` and noVNC traffic. The VNC ports stay private inside the Compose network. These defaults are intended for local development; add authentication and TLS before exposing them publicly.
 
 ## Stop
 

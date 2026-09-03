@@ -31,7 +31,7 @@ function startService(browser, name, response) {
       name: safeName,
       browser: target.browser,
       status: 'running',
-      vncUrl: `/vnc/${target.vncPath}/vnc.html?autoconnect=1&resize=remote&path=websockify`
+      vncUrl: `/vnc/${target.vncPath}/vnc.html?autoconnect=1&resize=remote&path=vnc/${target.vncPath}/websockify`
     });
   });
 }
