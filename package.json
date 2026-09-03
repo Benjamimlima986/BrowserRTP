@@ -1,0 +1,9 @@
+{
+  "name": "browserrtp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BrowserRTP local browser container control plane",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
