@@ -6,9 +6,12 @@ const { execFile } = require('node:child_process');
 const root = __dirname;
 const port = Number(process.env.PORT || 3001);
 const services = {
-  chrome: { service: 'chrome', browser: 'Chrome', vncPath: 'chrome' },
-  firefox: { service: 'firefox', browser: 'Firefox', vncPath: 'firefox' },
-  brave: { service: 'chrome', browser: 'Brave', vncPath: 'chrome' }
+  'ubuntu:chrome': { service: 'ubuntu-chrome', browser: 'Chrome', os: 'Ubuntu', vncPath: 'ubuntu' },
+  'ubuntu:firefox': { service: 'ubuntu-firefox', browser: 'Firefox', os: 'Ubuntu', vncPath: 'ubuntu-firefox' },
+  'ubuntu:brave': { service: 'ubuntu-chrome', browser: 'Brave', os: 'Ubuntu', vncPath: 'ubuntu' },
+  'debian:chrome': { service: 'chrome', browser: 'Chrome', os: 'Debian', vncPath: 'chrome' },
+  'debian:firefox': { service: 'firefox', browser: 'Firefox', os: 'Debian', vncPath: 'firefox' },
+  'debian:brave': { service: 'chrome', browser: 'Brave', os: 'Debian', vncPath: 'chrome' }
 };
 const contentTypes = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json' };
 
@@ -17,9 +20,9 @@ function sendJson(response, status, body) {
   response.end(JSON.stringify(body));
 }
 
-function startService(browser, name, response) {
-  const target = services[browser];
-  if (!target) return sendJson(response, 400, { error: 'Unsupported browser' });
+function startService(browser, os, name, response) {
+  const target = services[`${os}:${browser}`];
+  if (!target) return sendJson(response, 400, { error: 'Windows 10/7 require a Windows Docker host. Ubuntu and Debian are available here.' });
   const safeName = String(name || `${target.browser} session`).replace(/[^a-zA-Z0-9 _/-]/g, '').slice(0, 60);
   execFile('docker', ['compose', 'up', '-d', target.service], { cwd: root, timeout: 120000 }, (error, stdout, stderr) => {
     if (error) {
@@ -30,6 +33,7 @@ function startService(browser, name, response) {
       id: target.service,
       name: safeName,
       browser: target.browser,
+      os: target.os,
       status: 'running',
       vncUrl: `/vnc/${target.vncPath}/vnc.html?autoconnect=1&resize=remote&path=vnc/${target.vncPath}/websockify`
     });
@@ -53,7 +57,7 @@ const server = http.createServer((request, response) => {
     request.on('end', () => {
       try {
         const body = JSON.parse(data || '{}');
-        startService(String(body.browser || '').toLowerCase(), body.name, response);
+        startService(String(body.browser || '').toLowerCase(), String(body.os || 'ubuntu').toLowerCase(), body.name, response);
       } catch { sendJson(response, 400, { error: 'Invalid JSON' }); }
     });
     return;

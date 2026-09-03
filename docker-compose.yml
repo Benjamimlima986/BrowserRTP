@@ -27,6 +27,32 @@ services:
       BROWSER_NAME: "Chromium"
     restart: unless-stopped
 
+  ubuntu-chrome:
+    build:
+      context: ./docker/browser
+      args:
+        BASE_IMAGE: ubuntu:24.04
+        BROWSER: chromium
+    container_name: browserrtp-ubuntu-chrome
+    shm_size: 2gb
+    environment:
+      DISPLAY: ":99"
+      BROWSER_NAME: "Chromium"
+    restart: unless-stopped
+
+  ubuntu-firefox:
+    build:
+      context: ./docker/browser
+      args:
+        BASE_IMAGE: ubuntu:24.04
+        BROWSER: firefox
+    container_name: browserrtp-ubuntu-firefox
+    shm_size: 2gb
+    environment:
+      DISPLAY: ":99"
+      BROWSER_NAME: "Firefox"
+    restart: unless-stopped
+
   firefox:
     build:
       context: ./docker/browser

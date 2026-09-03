@@ -27,28 +27,36 @@ document.querySelectorAll('.browser-option').forEach((option) => {
   });
 });
 
+document.querySelectorAll('.os-option:not([disabled])').forEach((option) => {
+  option.addEventListener('click', () => {
+    document.querySelectorAll('.os-option').forEach((item) => item.classList.remove('selected'));
+    option.classList.add('selected');
+  });
+});
+
 document.querySelectorAll('.launch-button').forEach((button) => {
   button.addEventListener('click', () => {
     const machine = button.dataset.machine;
     const browser = machine.toLowerCase().includes('firefox') ? 'firefox' : machine.toLowerCase().includes('brave') ? 'brave' : 'chrome';
-    openSession(browser, machine);
+    openSession(browser, machine, false, 'ubuntu');
   });
 });
 
 createMachine.addEventListener('click', () => {
   const browser = document.querySelector('.browser-option.selected strong').textContent;
+  const os = document.querySelector('.os-option.selected').dataset.os;
   const name = machineInput.value.trim() || 'My browser session';
   setModal(false);
-  openSession(browser.toLowerCase(), name, true);
+  openSession(browser.toLowerCase(), name, true, os);
 });
 
-async function openSession(browser, name, deploying = false) {
+async function openSession(browser, name, deploying = false, os = 'ubuntu') {
   sessionModal.classList.add('open');
   sessionModal.setAttribute('aria-hidden', 'false');
   screenLoading.classList.remove('hidden');
   document.querySelector('#session-title').textContent = name;
   try {
-    const response = await fetch('/api/machines', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ browser, name }) });
+    const response = await fetch('/api/machines', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ browser, os, name }) });
     if (!response.ok) throw new Error('Container unavailable');
     const machine = await response.json();
     sessionFrame.src = machine.vncUrl;
