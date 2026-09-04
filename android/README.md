@@ -1,32 +1,35 @@
 # RTP Kali Terminal
 
-Aplicativo Android com abas de terminal, execucao de comandos no shell Android e ponte opcional para o Termux.
+Aplicativo Android standalone com abas de terminal e um userspace Kali executado sobre o kernel Android.
 
 ## O que esta versao faz
 
 - Cria varias abas de terminal independentes.
-- Executa comandos no shell Android local.
-- Envia comandos para o Termux instalado pelo F-Droid usando `RUN_COMMAND`.
+- Executa comandos no shell Android local enquanto o Kali ainda nao foi instalado.
+- Baixa e extrai o runtime `proot` e o rootfs Kali minimal diretamente pelo APK.
+- Executa `/bin/bash` dentro do rootfs Kali sem exigir o app Termux.
 - Oferece atalhos para `apt update`, `apt install` e `pkg install`.
 
-O app usa o kernel Android. Para ter um ambiente Kali userspace, instale o Termux e configure o `proot-distro` dentro dele. Isso e o modelo Kali NetHunter Rootless; nao substitui o kernel Android.
+O app usa o kernel Android. O Kali e um userspace real executado com `proot`, no modelo Kali NetHunter Rootless; o APK nao substitui o kernel Android.
 
-## Configurar Kali no Termux
+## Instalar Kali standalone
 
-No Termux, execute:
+Toque em `INSTALL` no app. Em aparelhos ARM64, ele baixa os componentes oficiais do Termux necessarios para o `proot` e o rootfs Kali minimal oficial. O download inicial tem aproximadamente 131 MB e a extracao precisa de espaco adicional.
+
+Depois da instalacao, o estado muda para `KALI READY` e cada aba executa comandos dentro do rootfs. Comandos como estes passam a funcionar dentro do Kali:
 
 ```bash
-pkg update
-pkg install proot-distro git
-proot-distro install debian
-proot-distro login debian
 apt update
-apt install kali-archive-keyring
+apt install nmap git python3
 ```
 
-O botao `TERMUX` envia os comandos digitados para o Termux. A imagem Kali completa nao e embutida no APK porque teria centenas de megabytes e deve ser baixada para a arquitetura do aparelho.
+Esta versao inicial suporta o rootfs ARM64. A imagem completa do Kali nao e embutida no APK porque teria gigabytes e deve ser baixada para a arquitetura do aparelho.
 
-O Termux e um projeto separado, licenciado sob GPLv3. O app usa a interface publica de comandos; uma distribuicao standalone baseada diretamente no source do Termux exigira incluir os avisos e o codigo correspondente da GPLv3.
+## Fallback NetHunter
+
+Em aparelhos compativeis, o NetHunter Rootless ou o NetHunter completo pode ser usado quando o modo standalone nao for adequado. O NetHunter completo exige root e, para recursos avancados de hardware, um kernel NetHunter compativel com o modelo do aparelho.
+
+O Termux e um projeto separado, licenciado sob GPLv3. Este app reutiliza componentes distribuidos pelo repositorio de pacotes do Termux e deve manter os avisos e os termos da GPLv3 junto da distribuicao.
 
 ## Build
 

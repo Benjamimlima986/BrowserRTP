@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
-import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.text.InputType;
@@ -37,6 +36,8 @@ public class MainActivity extends Activity {
     private LinearLayout terminalStack;
     private TextView terminalOutput;
     private EditText commandInput;
+    private TextView runtimeState;
+    private KaliRuntime kaliRuntime;
     private int selectedSession;
 
     @Override
@@ -44,6 +45,7 @@ public class MainActivity extends Activity {
         super.onCreate(state);
         getWindow().setStatusBarColor(BG);
         getWindow().setNavigationBarColor(BG);
+        kaliRuntime = new KaliRuntime(this);
         sessions.add(new TerminalSession("kali-1"));
         buildScreen();
         selectSession(0);
@@ -60,7 +62,11 @@ public class MainActivity extends Activity {
         TextView brand = text("RTP / KALI", 14, GREEN);
         brand.setTypeface(null, 1);
         header.addView(brand, weighted(1));
-        header.addView(text("ANDROID KERNEL", 10, MUTED), params(WRAP, dp(36)));
+        runtimeState = text(kaliRuntime.isInstalled() ? "KALI READY" : "KALI NOT INSTALLED", 10, MUTED);
+        header.addView(runtimeState, params(WRAP, dp(36)));
+        Button install = button("INSTALL", BG, GREEN);
+        install.setOnClickListener(v -> installKali());
+        header.addView(install, params(dp(88), dp(40)));
         root.addView(header, params(MATCH, dp(54)));
 
         HorizontalScrollView tabsScroll = new HorizontalScrollView(this);
@@ -100,9 +106,6 @@ public class MainActivity extends Activity {
         Button send = button("RUN", BG, GREEN);
         send.setOnClickListener(v -> runCommand());
         commandBar.addView(send, params(dp(78), dp(50)));
-        Button termux = button("TERMUX", GREEN, PANEL_ALT);
-        termux.setOnClickListener(v -> runInTermux());
-        commandBar.addView(termux, params(dp(86), dp(50)));
         root.addView(commandBar, params(MATCH, dp(66)));
 
         setContentView(root);
@@ -162,22 +165,27 @@ public class MainActivity extends Activity {
         session.run(command);
     }
 
-    private void runInTermux() {
-        String command = commandInput.getText().toString().trim();
-        if (command.length() == 0) return;
-        commandInput.setText("");
-        try {
-            Intent intent = new Intent("com.termux.RUN_COMMAND");
-            intent.setPackage("com.termux");
-            intent.putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/bash");
-            intent.putExtra("com.termux.RUN_COMMAND_ARGUMENTS", new String[]{"-lc", command});
-            intent.putExtra("com.termux.RUN_COMMAND_BACKGROUND", false);
-            startService(intent);
-            sessions.get(selectedSession).append("\\n[Termux] $ " + command + "\\n");
-            toast("Comando enviado ao Termux");
-        } catch (Exception error) {
-            toast("Instale o Termux pelo F-Droid primeiro");
-        }
+    private void installKali() {
+        runtimeState.setText("DOWNLOADING KALI");
+        kaliRuntime.install(new KaliRuntime.Progress() {
+            @Override public void update(String message, int percent) {
+                runOnUiThread(() -> runtimeState.setText("KALI " + percent + "%"));
+            }
+
+            @Override public void complete(String message) {
+                runOnUiThread(() -> {
+                    runtimeState.setText("KALI READY");
+                    toast(message);
+                });
+            }
+
+            @Override public void fail(String message) {
+                runOnUiThread(() -> {
+                    runtimeState.setText("KALI FAILED");
+                    toast(message);
+                });
+            }
+        });
     }
 
     private void addQuickCommand(LinearLayout parent, String command) {
@@ -238,7 +246,9 @@ public class MainActivity extends Activity {
         private void run(String command) {
             new Thread(() -> {
                 try {
-                    process = new ProcessBuilder("/system/bin/sh", "-c", command)
+                        process = kaliRuntime.isInstalled()
+                            ? kaliRuntime.start(command)
+                            : new ProcessBuilder("/system/bin/sh", "-c", command)
                             .redirectErrorStream(true).start();
                     BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
                     String line;
