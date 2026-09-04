@@ -19,6 +19,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -68,6 +70,7 @@ final class KaliRuntime {
                 download(KALI_ROOTFS, archive, progress, 25, 75);
                 progress.update("Extraindo rootfs Kali...", 76);
                 extractTarXz(archive, rootfsDir);
+                flattenRootfsDirectory();
                 archive.delete();
                 File proot = new File(runtimeDir, "data/data/com.termux/files/usr/bin/proot");
                 proot.setExecutable(true);
@@ -110,6 +113,20 @@ final class KaliRuntime {
         throw new IOException("Pacote Debian sem data archive: " + deb.getName());
     }
 
+    private void flattenRootfsDirectory() throws IOException {
+        File[] entries = rootfsDir.listFiles();
+        if (entries == null || entries.length != 1 || !entries[0].isDirectory()) return;
+        File wrapper = entries[0];
+        if (!wrapper.getName().startsWith("kali-")) return;
+        File[] contents = wrapper.listFiles();
+        if (contents == null) throw new IOException("Rootfs Kali vazio");
+        for (File item : contents) {
+            File target = new File(rootfsDir, item.getName());
+            if (!item.renameTo(target)) throw new IOException("Nao foi possivel preparar o rootfs Kali");
+        }
+        if (!wrapper.delete()) throw new IOException("Nao foi possivel finalizar o rootfs Kali");
+    }
+
     private void extractTarXz(File archive, File destination) throws IOException {
         try (InputStream input = new XZCompressorInputStream(new BufferedInputStream(new FileInputStream(archive)))) {
             extractTar(new TarArchiveInputStream(input), destination);
@@ -120,7 +137,13 @@ final class KaliRuntime {
         TarArchiveEntry entry;
         byte[] buffer = new byte[16384];
         while ((entry = tar.getNextTarEntry()) != null) {
-            File output = safeFile(destination, entry.getName());
+            String entryName = entry.getName().replace('\\', '/');
+            while (entryName.startsWith("/")) entryName = entryName.substring(1);
+            Path relative = Paths.get(entryName).normalize();
+            if (relative.isAbsolute() || relative.startsWith("..")) {
+                throw new IOException("Entrada de arquivo invalida: " + entry.getName());
+            }
+            File output = safeFile(destination, relative.toString());
             if (entry.isDirectory()) {
                 output.mkdirs();
             } else if (entry.isFile()) {
@@ -138,7 +161,10 @@ final class KaliRuntime {
     private File safeFile(File destination, String name) throws IOException {
         File output = new File(destination, name);
         String base = destination.getCanonicalPath() + File.separator;
-        if (!output.getCanonicalPath().startsWith(base)) throw new IOException("Entrada de arquivo invalida");
+        String canonical = output.getCanonicalPath();
+        if (!canonical.equals(destination.getCanonicalPath()) && !canonical.startsWith(base)) {
+            throw new IOException("Entrada de arquivo invalida: " + name);
+        }
         return output;
     }
 
