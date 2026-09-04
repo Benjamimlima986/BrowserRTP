@@ -23,6 +23,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Locale;
 
 final class KaliRuntime {
     interface Progress {
@@ -169,25 +170,50 @@ final class KaliRuntime {
     }
 
     private void download(String address, File target, Progress progress, int start, int end) throws IOException {
-        HttpURLConnection connection = (HttpURLConnection) new URL(address).openConnection();
-        connection.setConnectTimeout(20000);
-        connection.setReadTimeout(60000);
-        connection.connect();
-        if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) throw new IOException("Download HTTP " + connection.getResponseCode());
-        int total = connection.getContentLength();
-        int read = 0;
-        byte[] buffer = new byte[32768];
-        try (InputStream input = connection.getInputStream(); OutputStream output = new BufferedOutputStream(new FileOutputStream(target))) {
-            int count;
-            while ((count = input.read(buffer)) != -1) {
-                output.write(buffer, 0, count);
-                read += count;
-                int percent = total > 0 ? start + (read * (end - start) / total) : start;
-                progress.update("Baixando... " + (read / 1024 / 1024) + " MB", Math.min(end, percent));
+        File partial = new File(target.getAbsolutePath() + ".part");
+        IOException lastError = null;
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            HttpURLConnection connection = null;
+            try {
+                connection = (HttpURLConnection) new URL(address).openConnection();
+                connection.setInstanceFollowRedirects(true);
+                connection.setConnectTimeout(30000);
+                connection.setReadTimeout(120000);
+                connection.connect();
+                if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
+                    throw new IOException("Download HTTP " + connection.getResponseCode());
+                }
+                long total = connection.getContentLengthLong();
+                long read = 0;
+                byte[] buffer = new byte[32768];
+                try (InputStream input = new BufferedInputStream(connection.getInputStream());
+                     OutputStream output = new BufferedOutputStream(new FileOutputStream(partial))) {
+                    int count;
+                    while ((count = input.read(buffer)) != -1) {
+                        output.write(buffer, 0, count);
+                        read += count;
+                        int percent = total > 0 ? start + (int) (read * (end - start) / total) : start;
+                        String size = total > 0
+                                ? String.format(Locale.US, "%.1f / %.1f MB", read / 1048576d, total / 1048576d)
+                                : String.format(Locale.US, "%.1f MB", read / 1048576d);
+                        progress.update("Baixando " + size, Math.min(end, percent));
+                    }
+                }
+                if (total > 0 && partial.length() != total) {
+                    throw new IOException("Download incompleto: " + partial.length() + " de " + total + " bytes");
+                }
+                if (target.exists() && !target.delete()) throw new IOException("Nao foi possivel substituir o download anterior");
+                if (!partial.renameTo(target)) throw new IOException("Nao foi possivel finalizar o download");
+                return;
+            } catch (IOException error) {
+                lastError = error;
+                progress.update("Rede instavel, tentando novamente (" + attempt + "/3)...", start);
+                if (partial.exists() && !partial.delete()) break;
+            } finally {
+                if (connection != null) connection.disconnect();
             }
-        } finally {
-            connection.disconnect();
         }
+        throw lastError == null ? new IOException("Falha no download") : lastError;
     }
 
     private boolean isArm64() {
