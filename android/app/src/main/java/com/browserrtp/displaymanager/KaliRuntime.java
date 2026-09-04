@@ -69,14 +69,14 @@ final class KaliRuntime {
                 File archive = new File(context.getCacheDir(), "kali-rootfs.tar.xz");
                 progress.update("Baixando rootfs Kali minimal (aprox. 131 MB)...", 25);
                 download(KALI_ROOTFS, archive, progress, 25, 75);
-                progress.update("Extraindo rootfs Kali...", 76);
-                extractTarXz(archive, rootfsDir);
+                progress.update("Extraindo NetHunter Standalone...", 76);
+                extractTarXz(archive, rootfsDir, progress);
                 flattenRootfsDirectory();
                 archive.delete();
                 File proot = new File(runtimeDir, "data/data/com.termux/files/usr/bin/proot");
                 proot.setExecutable(true);
                 new File(rootfsDir, "tmp").mkdirs();
-                progress.complete("Kali standalone instalado");
+                progress.complete("NetHunter Standalone pronto");
             } catch (Exception error) {
                 progress.fail(error.getMessage() == null ? "Falha ao instalar Kali" : error.getMessage());
             }
@@ -128,16 +128,25 @@ final class KaliRuntime {
         if (!wrapper.delete()) throw new IOException("Nao foi possivel finalizar o rootfs Kali");
     }
 
-    private void extractTarXz(File archive, File destination) throws IOException {
+    private void extractTarXz(File archive, File destination, Progress progress) throws IOException {
         try (InputStream input = new XZCompressorInputStream(new BufferedInputStream(new FileInputStream(archive)))) {
-            extractTar(new TarArchiveInputStream(input), destination);
+            extractTar(new TarArchiveInputStream(input), destination, progress);
         }
     }
 
     private void extractTar(TarArchiveInputStream tar, File destination) throws IOException {
+        extractTar(tar, destination, null);
+    }
+
+    private void extractTar(TarArchiveInputStream tar, File destination, Progress progress) throws IOException {
         TarArchiveEntry entry;
         byte[] buffer = new byte[16384];
+        int entries = 0;
         while ((entry = tar.getNextTarEntry()) != null) {
+            entries++;
+            if (progress != null && entries % 250 == 0) {
+                progress.update("Extraindo NetHunter: " + entries + " arquivos", 76 + Math.min(22, entries / 250));
+            }
             String entryName = entry.getName().replace('\\', '/');
             while (entryName.startsWith("/")) entryName = entryName.substring(1);
             Path relative = Paths.get(entryName).normalize();

@@ -169,7 +169,7 @@ public class MainActivity extends Activity {
         runtimeState.setText("DOWNLOADING KALI");
         kaliRuntime.install(new KaliRuntime.Progress() {
             @Override public void update(String message, int percent) {
-                runOnUiThread(() -> runtimeState.setText("KALI " + percent + "%"));
+                runOnUiThread(() -> runtimeState.setText(message));
             }
 
             @Override public void complete(String message) {
