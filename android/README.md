@@ -18,6 +18,8 @@ Toque em `INSTALL` no app. Em aparelhos ARM64, ele baixa os componentes oficiais
 
 Depois da instalacao, o estado muda para `KALI READY` e cada aba executa comandos dentro do rootfs. Comandos como estes passam a funcionar dentro do Kali:
 
+Toque em `RUN` para iniciar o NetHunter Standalone. O app mostra os logs reais do rootfs, incluindo `/etc/os-release`, `id`, `uname` e o caminho do Bash. Quando o boot termina, as abas e o campo de comandos sao liberados.
+
 ```bash
 apt update
 apt install nmap git python3

@@ -34,10 +34,14 @@ public class MainActivity extends Activity {
     private final List<TerminalSession> sessions = new ArrayList<>();
     private LinearLayout tabBar;
     private LinearLayout terminalStack;
+    private LinearLayout terminalControls;
     private TextView terminalOutput;
+    private TextView bootOutput;
     private EditText commandInput;
     private TextView runtimeState;
+    private Button runtimeButton;
     private KaliRuntime kaliRuntime;
+    private boolean kaliStarted;
     private int selectedSession;
 
     @Override
@@ -64,9 +68,12 @@ public class MainActivity extends Activity {
         header.addView(brand, weighted(1));
         runtimeState = text(kaliRuntime.isInstalled() ? "KALI READY" : "KALI NOT INSTALLED", 10, MUTED);
         header.addView(runtimeState, params(WRAP, dp(36)));
-        Button install = button("INSTALL", BG, GREEN);
-        install.setOnClickListener(v -> installKali());
-        header.addView(install, params(dp(88), dp(40)));
+        runtimeButton = button(kaliRuntime.isInstalled() ? "RUN" : "INSTALL", BG, GREEN);
+        runtimeButton.setOnClickListener(v -> {
+            if (kaliRuntime.isInstalled()) startKali();
+            else installKali();
+        });
+        header.addView(runtimeButton, params(dp(88), dp(40)));
         root.addView(header, params(MATCH, dp(54)));
 
         HorizontalScrollView tabsScroll = new HorizontalScrollView(this);
@@ -78,6 +85,12 @@ public class MainActivity extends Activity {
 
         terminalStack = new LinearLayout(this);
         terminalStack.setOrientation(LinearLayout.VERTICAL);
+        bootOutput = text("NetHunter Standalone ainda nao foi iniciado.\nToque em INSTALL e depois em RUN.\n", 13, GREEN);
+        bootOutput.setPadding(dp(14), dp(12), dp(14), dp(12));
+        ScrollView bootScroll = new ScrollView(this);
+        bootScroll.setBackgroundColor(Color.BLACK);
+        bootScroll.addView(bootOutput);
+        terminalStack.addView(bootScroll, params(MATCH, MATCH));
         root.addView(terminalStack, weighted(1));
 
         LinearLayout quickBar = new LinearLayout(this);
@@ -107,6 +120,9 @@ public class MainActivity extends Activity {
         send.setOnClickListener(v -> runCommand());
         commandBar.addView(send, params(dp(78), dp(50)));
         root.addView(commandBar, params(MATCH, dp(66)));
+        terminalControls = quickBar;
+        terminalControls.setVisibility(LinearLayout.GONE);
+        commandBar.setVisibility(LinearLayout.GONE);
 
         setContentView(root);
     }
@@ -115,7 +131,7 @@ public class MainActivity extends Activity {
         selectedSession = index;
         TerminalSession session = sessions.get(index);
         terminalOutput = session.output;
-        renderTerminal(session);
+        if (kaliStarted) renderTerminal(session);
         updateTabs();
     }
 
@@ -166,6 +182,8 @@ public class MainActivity extends Activity {
     }
 
     private void installKali() {
+        runtimeButton.setEnabled(false);
+        runtimeButton.setText("WAIT");
         runtimeState.setText("DOWNLOADING KALI");
         kaliRuntime.install(new KaliRuntime.Progress() {
             @Override public void update(String message, int percent) {
@@ -175,6 +193,8 @@ public class MainActivity extends Activity {
             @Override public void complete(String message) {
                 runOnUiThread(() -> {
                     runtimeState.setText("KALI READY");
+                    runtimeButton.setEnabled(true);
+                    runtimeButton.setText("RUN");
                     toast(message);
                 });
             }
@@ -182,9 +202,57 @@ public class MainActivity extends Activity {
             @Override public void fail(String message) {
                 runOnUiThread(() -> {
                     runtimeState.setText("KALI FAILED");
+                    runtimeButton.setEnabled(true);
+                    runtimeButton.setText("RETRY");
                     toast(message);
                 });
             }
+        });
+    }
+
+    private void startKali() {
+        runtimeButton.setEnabled(false);
+        runtimeButton.setText("BOOT");
+        runtimeState.setText("STARTING NETHUNTER");
+        bootOutput.setText("[RTP] Starting Kali NetHunter Standalone...\n");
+        new Thread(() -> {
+            try {
+                Process boot = kaliRuntime.start(""
+                        + "echo '[KALI] Preparing root filesystem'; "
+                        + "echo '[KALI] Kernel: '$(uname -r); "
+                        + "echo '[KALI] Identity: '$(id); "
+                        + "echo '[KALI] Release:'; cat /etc/os-release; "
+                        + "echo '[KALI] Checking shell: '$(command -v bash); "
+                        + "echo '[KALI] NetHunter userspace ready'");
+                BufferedReader reader = new BufferedReader(new InputStreamReader(boot.getInputStream()));
+                String line;
+                while ((line = reader.readLine()) != null) appendBoot(line + "\n");
+                int exit = boot.waitFor();
+                if (exit != 0) throw new IOException("Kali terminou com codigo " + exit);
+                runOnUiThread(() -> {
+                    runtimeState.setText("KALI RUNNING");
+                    runtimeButton.setEnabled(true);
+                    runtimeButton.setText("RUNNING");
+                    kaliStarted = true;
+                    terminalControls.setVisibility(LinearLayout.VISIBLE);
+                    terminalStack.removeAllViews();
+                    selectSession(selectedSession);
+                });
+            } catch (Exception error) {
+                appendBoot("[ERROR] " + error.getMessage() + "\n");
+                runOnUiThread(() -> {
+                    runtimeState.setText("KALI FAILED");
+                    runtimeButton.setEnabled(true);
+                    runtimeButton.setText("RUN");
+                });
+            }
+        }).start();
+    }
+
+    private void appendBoot(String message) {
+        runOnUiThread(() -> {
+            bootOutput.append(message);
+            bootOutput.invalidate();
         });
     }
 
